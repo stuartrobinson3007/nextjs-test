@@ -19,7 +19,7 @@ export default function Page() {
             </div>
 
             <div className="mt-10 text-blue-500">
-                <Link href="/">Navigate back to "Home" page</Link>
+                <Link href="/">Navigate back to Home page</Link>
             </div>
         </>
     );
