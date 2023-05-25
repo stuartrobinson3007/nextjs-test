@@ -8,7 +8,7 @@ export default function Home() {
         Page: Home
       </div>
       <div className="mt-10 text-blue-500">
-        <Link href={`/test?${Date.now()}`}>Navigate to Test page</Link>
+        <Link href="/test">Navigate to Test page</Link>
       </div>
     </>
   )

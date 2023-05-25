@@ -15,7 +15,7 @@ export default function Page() {
             </div>
 
             <div className="mt-10">
-                Random number: {random}
+                We want this to be a new random number each time: {random}
             </div>
 
             <div className="mt-10 text-blue-500">
