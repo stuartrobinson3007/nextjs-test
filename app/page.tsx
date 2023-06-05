@@ -1,22 +1,23 @@
-"use client"
+import { headers } from "next/headers";
+import Link from "next/link";
 
-import "./styles.css";
-import { Reorder } from 'framer-motion';
-import Image from 'next/image'
-import Link from 'next/link'
-import { useState } from 'react';
-import { Item } from './Item';
 
-const initialItems = ["🍅 Tomato", "🥒 Cucumber", "🧀 Cheese", "🥬 Lettuce"];
+export default function Page() {
 
-export default function Home() {
-  const [items, setItems] = useState(initialItems);
+  const nonce = headers().get('x-nonce')
+
+  console.log('nonce', nonce)
 
   return (
-    <Reorder.Group axis="y" onReorder={setItems} values={items}>
-      {items.map((item) => (
-        <Item key={item} item={item} />
-      ))}
-    </Reorder.Group>
+    <div>
+      <h1 className="text-4xl font-bold">Hello World</h1>
+      <Link href="/dynamic-test/1" className="text-blue-500 hover:text-blue-800">
+        Go to Dynamic Test 1
+      </Link>
+
+      <div className="mt-6">
+        Nonce: {nonce}
+      </div>
+    </div>
   );
 }
