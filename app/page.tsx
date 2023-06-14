@@ -14,10 +14,14 @@ export default function Page() {
       <Link href="/dynamic-test/1" className="text-blue-500 hover:text-blue-800">
         Go to Dynamic Test 1
       </Link>
+      <Link href="/test" className="text-blue-500 hover:text-blue-800">
+        Go to Test
+      </Link>
 
       <div className="mt-6">
         Nonce: {nonce}
       </div>
+
     </div>
   );
 }
