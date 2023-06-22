@@ -183,6 +183,17 @@ const WebcamStreamCapture = () => {
 
   return (
     <div className="flex flex-col items-center justify-center">
+      <video
+        className="w-full h-full rounded-lg"
+        controls
+        crossOrigin="anonymous"
+      >
+        <source
+          src="https://res.cloudinary.com/duqw460bf/video/upload/v1687419161/video_test/nwr03opse9xsfac4bouy.mp4"
+          type="video/mp4"
+        />
+      </video>
+
       {pageState === "initializing" ? (
         <div className="text-gray-500 h-[70vh] flex items-center justify-center">
           Loading...
@@ -279,9 +290,9 @@ const WebcamStreamCapture = () => {
             >
               <source
                 src={URL.createObjectURL(
-                  new Blob(recordedChunks, { type: "video/webm" })
+                  new Blob(recordedChunks, { type: "video/mp4" })
                 )}
-                type="video/webm"
+                type="video/mp4"
               />
             </video>
           </div>
