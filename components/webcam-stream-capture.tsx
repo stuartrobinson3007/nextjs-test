@@ -176,7 +176,7 @@ const WebcamStreamCapture = () => {
           Loading...
         </div>
       ) : pageState === "ready" || pageState === "recording" ? (
-        devices.length > 0 ? (
+        devices && deviceId ? (
           <>
             <div className="flex-1 h-[640px] w-[640px] max-w-full rounded-lg overflow-hidden relative aspect-square max-h-[70vh] bg-white/5">
               <Webcam
@@ -302,7 +302,7 @@ const WebcamStreamCapture = () => {
               crossOrigin="anonymous"
               autoPlay
             >
-              <source src={videoUrl} type="video/mp4" />
+              <source src={videoUrl || ""} type="video/mp4" />
             </video>
           </div>
 
