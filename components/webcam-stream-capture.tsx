@@ -17,7 +17,7 @@ const WebcamStreamCapture = () => {
   >("initializing");
 
   const videoConstraints = {
-    facingMode: "user",
+    //facingMode: "user",
     width: 640,
     height: 640,
     aspectRatio: 1,
@@ -38,7 +38,9 @@ const WebcamStreamCapture = () => {
 
   const handleDevices = useCallback(
     (mediaDevices: MediaDeviceInfo[]) => {
-      setDevices(mediaDevices.filter(({ kind }) => kind === "videoinput"));
+      const cameras = mediaDevices.filter(({ kind }) => kind === "videoinput");
+      setDevices(cameras ? cameras : []);
+      setDeviceId(cameras ? cameras[0].deviceId : null);
       setPageState("ready");
     },
     [setDevices]
@@ -176,7 +178,7 @@ const WebcamStreamCapture = () => {
           Loading...
         </div>
       ) : pageState === "ready" || pageState === "recording" ? (
-        devices && deviceId ? (
+        devices.length > 0 ? (
           <>
             <div className="flex-1 h-[640px] w-[640px] max-w-full rounded-lg overflow-hidden relative aspect-square max-h-[70vh] bg-white/5">
               <Webcam
