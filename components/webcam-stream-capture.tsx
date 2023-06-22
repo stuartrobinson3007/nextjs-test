@@ -23,8 +23,8 @@ const WebcamStreamCapture = () => {
     aspectRatio: 1,
   };
 
-  const [deviceId, setDeviceId] = useState({});
-  const [devices, setDevices] = useState([]);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>();
 
   const webcamRef = useRef<Webcam | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -37,7 +37,7 @@ const WebcamStreamCapture = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const handleDevices = useCallback(
-    (mediaDevices) => {
+    (mediaDevices: MediaDeviceInfo[]) => {
       setDevices(mediaDevices.filter(({ kind }) => kind === "videoinput"));
       setPageState("ready");
     },
@@ -49,6 +49,7 @@ const WebcamStreamCapture = () => {
   }, [handleDevices]);
 
   const handleDeviceSwitch = useCallback(() => {
+    if (!devices || !deviceId) return;
     const nextDeviceId =
       devices.find((device) => device.deviceId !== deviceId)?.deviceId ||
       devices[0].deviceId;
