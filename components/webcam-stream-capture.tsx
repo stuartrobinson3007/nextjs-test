@@ -279,9 +279,9 @@ const WebcamStreamCapture = () => {
             >
               <source
                 src={URL.createObjectURL(
-                  new Blob(recordedChunks, { type: "video/mp4" })
+                  new Blob(recordedChunks, { type: "video/webm" })
                 )}
-                type="video/mp4"
+                type="video/webm"
               />
             </video>
           </div>
