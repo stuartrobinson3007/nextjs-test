@@ -42,6 +42,8 @@ const WebcamStreamCapture = () => {
       setDevices(cameras ? cameras : []);
       setDeviceId(cameras ? cameras[0].deviceId : null);
       setPageState("ready");
+      console.log("mediaDevices", mediaDevices);
+      console.log("cameras", cameras);
     },
     [setDevices]
   );
