@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import Webcam from "react-webcam";
 
+// This sets the maximum number of seconds the video can be
 const MAX_SECONDS = 10;
 
 const WebcamStreamCapture = () => {
@@ -13,90 +14,98 @@ const WebcamStreamCapture = () => {
     | "finished-recording"
     | "uploading"
     | "success"
+    | "permission-denied"
     | "error"
   >("initializing");
 
-  const videoConstraints = {
-    //facingMode: "user",
+  const videoConstraints: MediaTrackConstraints = {
     width: 640,
     height: 640,
     aspectRatio: 1,
   };
 
+  // cameras is a list of all cameras connected to the user's device
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>();
+  // deviceId is the id of the camera that is currently being used
   const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>();
 
+  // This is the ref to the Webcam component from react-webcam
   const webcamRef = useRef<Webcam | null>(null);
+
+  // This is the ref to the MediaRecorder object which we use to control the start, stop and dataavailable events for the recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+
+  // We store the recorded chunks in state which updates as the recording progresses (handled when the MediaRecorder dataavailable event is fired)
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+
+  // This is the number of seconds remaining for the recording, we count down from MAX_SECONDS
   const [seconds, setSeconds] = useState(MAX_SECONDS);
 
-  /////////////////
-  // JUST FOR TESTING
-  /////////////////
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  // The videoRef is used to display the recorded video once the recording is finished
+  const videoRef = useRef<HTMLVideoElement>(null);
 
+  // This is the function that is called when the user grants permission to use the camera and microphone
   const handleDevices = useCallback(
     (mediaDevices: MediaDeviceInfo[]) => {
       const cameras = mediaDevices.filter(({ kind }) => kind === "videoinput");
-      setDevices(cameras ? cameras : []);
+      setCameras(cameras ? cameras : []);
       setDeviceId(cameras ? cameras[0].deviceId : null);
       setPageState("ready");
-      console.log("mediaDevices", mediaDevices);
-      console.log("cameras", cameras);
     },
-    [setDevices]
+    [setCameras]
   );
 
+  // Request permission to use the camera and microphone
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({
         audio: true,
         video: true,
       })
-      .then((stream) => {
-        console.log("stream", stream);
+      .then(() => {
+        // Once the user grants permission we get the list of devices and set the deviceId state to the first camera in the list
         navigator.mediaDevices.enumerateDevices().then(handleDevices);
+      })
+      .catch((err) => {
+        // Check if the error happens because the user denies access to the camera or microphone
+        if (err.name === "NotAllowedError") {
+          setPageState("permission-denied");
+        } else {
+          setPageState("error");
+        }
       });
   }, [handleDevices]);
 
-  const handleDeviceSwitch = useCallback(() => {
-    if (!devices || !deviceId) return;
-    const nextDeviceId =
-      devices.find((device) => device.deviceId !== deviceId)?.deviceId ||
-      devices[0].deviceId;
-
-    setDeviceId(nextDeviceId);
-  }, [deviceId, devices]);
-
+  // The MediaRecorder processes data in chunks, this function handles the dataavailable event which fires when a chunk of data is ready to be processed
+  // We concatenate the chunk to the recordedChunks state so that we can access it when the recording is finished
   const handleDataAvailable = useCallback(
     ({ data }: BlobEvent) => {
       if (data.size > 0) {
-        console.log(data);
         setRecordedChunks((prev) => prev.concat(data));
       }
     },
     [setRecordedChunks]
   );
 
-  useEffect(() => {
-    console.log("recordedChunks", recordedChunks);
-  }, [recordedChunks]);
-
+  // This function is called when the user clicks the start recording button
   const handleStartCapture = useCallback(() => {
     setPageState("recording");
     setRecordedChunks([]);
     setSeconds(MAX_SECONDS);
 
+    // First we create a new MediaRecorder object and pass it the stream from the webcam
     mediaRecorderRef.current = new MediaRecorder(
       webcamRef?.current?.stream as MediaStream
     );
+    // Then we add an event listener to the dataavailable event so that we can store the data as the recording progresses
     mediaRecorderRef.current.addEventListener(
       "dataavailable",
       handleDataAvailable
     );
+    // Finally we start the recording
     mediaRecorderRef.current.start();
 
+    // Remove the event listener when the component unmounts
     return () => {
       mediaRecorderRef.current?.removeEventListener(
         "dataavailable",
@@ -106,15 +115,25 @@ const WebcamStreamCapture = () => {
     };
   }, [handleDataAvailable]);
 
+  // Stop the recording if the user clicks the stop recording button or the timer reaches 0
   const handleStopCapture = useCallback(() => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
     }
-    setTimeout(() => {
-      setPageState("finished-recording");
-    }, 0);
+    setPageState("finished-recording");
   }, []);
 
+  // Once the page state is "finished-recording" we set the videoRef src to the recorded video
+  // Handling this is a useEffect is the safest way to ensure that the videoRef is set after the recording is finished and the chunks are ready
+  useEffect(() => {
+    if (pageState === "finished-recording" && videoRef.current) {
+      const videoBlob = new Blob(recordedChunks, { type: "video/mp4" });
+      const videoUrl = URL.createObjectURL(videoBlob);
+      videoRef.current.src = videoUrl;
+    }
+  }, [pageState, recordedChunks]);
+
+  // Handle the timer countdown
   useEffect(() => {
     let timer: any = null;
     if (pageState === "recording") {
@@ -131,14 +150,19 @@ const WebcamStreamCapture = () => {
     };
   }, [pageState, seconds, handleStopCapture]);
 
+  // Once the recording has finished and the user has been given a change to review the video, this functions handles the upload to Cloudinary when they click the upload button
   const handleUpload = async () => {
     if (recordedChunks.length) {
+      // Create a new blob from all the recorded chunks
       const file = new Blob(recordedChunks, {
-        type: `video/webm`,
+        type: `video/mp4`,
       });
 
-      // This creates a unique id for the file name
-      const unique_id = Math.random().toString(36).substr(2, 9);
+      // If the file is larger than 100MB we display an error
+      if (file.size > 100000000) {
+        alert("File is too big!");
+        return;
+      }
 
       const env = {
         NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: "duqw460bf",
@@ -148,6 +172,7 @@ const WebcamStreamCapture = () => {
       const uploadPreset = "video-test";
       const folder = "video_test";
 
+      // Upload the file to Cloudinary
       const formData = new FormData();
       formData.append("file", file);
       formData.append("api_key", env.NEXT_PUBLIC_CLOUDINARY_API_KEY);
@@ -171,7 +196,6 @@ const WebcamStreamCapture = () => {
       const data = await response.json();
       console.log(data);
       setPageState("success");
-      setVideoUrl(data.secure_url);
     }
   };
 
@@ -181,32 +205,32 @@ const WebcamStreamCapture = () => {
     setSeconds(MAX_SECONDS);
   }
 
+  // We change the camera by changing the deviceId state
+  // This is called when the user clicks the switch camera button
+  const handleDeviceSwitch = useCallback(() => {
+    if (!cameras || !deviceId) return;
+    const nextDeviceId =
+      cameras.find((device) => device.deviceId !== deviceId)?.deviceId ||
+      cameras[0].deviceId;
+
+    setDeviceId(nextDeviceId);
+  }, [deviceId, cameras]);
+
   return (
     <div className="flex flex-col items-center justify-center">
-      <video
-        className="w-full h-full rounded-lg"
-        controls
-        crossOrigin="anonymous"
-      >
-        <source
-          src="https://res.cloudinary.com/duqw460bf/video/upload/v1687419161/video_test/nwr03opse9xsfac4bouy.mp4"
-          type="video/mp4"
-        />
-      </video>
-
       {pageState === "initializing" ? (
         <div className="text-gray-500 h-[70vh] flex items-center justify-center">
           Loading...
         </div>
       ) : pageState === "ready" || pageState === "recording" ? (
-        devices && deviceId ? (
+        cameras && deviceId ? (
           <>
             <div className="flex-1 h-[640px] w-[640px] max-w-full rounded-lg overflow-hidden relative aspect-square max-h-[70vh] bg-white/5">
               <Webcam
                 videoConstraints={{ ...videoConstraints, deviceId: deviceId }}
                 width={640}
                 height={640}
-                className="object-cover w-full h-full "
+                className="object-cover w-full h-full"
                 ref={webcamRef}
               />
               {pageState === "recording" && (
@@ -218,7 +242,7 @@ const WebcamStreamCapture = () => {
                   </span>
                 </div>
               )}
-              {devices.length > 1 && (
+              {cameras.length > 1 && (
                 <button
                   className="absolute bottom-0 right-0 bg-gray-500 text-white rounded-lg p-2 m-2"
                   onClick={handleDeviceSwitch}
@@ -282,19 +306,15 @@ const WebcamStreamCapture = () => {
         )
       ) : pageState === "finished-recording" ? (
         <>
-          <div className="text-gray-500 h-[70vh] flex items-center justify-center">
+          <div className="flex-1 h-[640px] w-[640px] max-w-full rounded-lg overflow-hidden relative aspect-square max-h-[70vh] bg-white/5">
             <video
-              className="w-full h-full rounded-lg"
+              className="absolute object-cover w-full h-full"
+              width={640}
+              height={640}
               controls
               crossOrigin="anonymous"
-            >
-              <source
-                src={URL.createObjectURL(
-                  new Blob(recordedChunks, { type: "video/mp4" })
-                )}
-                type="video/mp4"
-              />
-            </video>
+              ref={videoRef}
+            />
           </div>
 
           <div className="mt-8 flex items-center justify-center">
@@ -318,19 +338,12 @@ const WebcamStreamCapture = () => {
         </div>
       ) : pageState === "success" ? (
         <>
-          <div className="text-gray-500 h-[70vh] flex items-center justify-center">
-            <video
-              className="w-full h-full rounded-lg"
-              controls
-              crossOrigin="anonymous"
-              autoPlay
-            >
-              <source src={videoUrl || ""} type="video/mp4" />
-            </video>
-          </div>
-
           <div className="mt-8 flex items-center justify-center">done</div>
         </>
+      ) : pageState === "permission-denied" ? (
+        <div className="text-gray-500 h-[70vh] flex items-center justify-center">
+          Please refresh and allow camera access or check your browser settings
+        </div>
       ) : pageState === "error" ? (
         <div className="text-gray-500 h-[70vh] flex items-center justify-center">
           There was an error
